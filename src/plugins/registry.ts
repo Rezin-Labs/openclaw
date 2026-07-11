@@ -2610,6 +2610,7 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
 
   const pluginRuntimeById = new Map<string, PluginRuntime>();
   const pluginRuntimeRecordById = new Map<string, PluginRecord>();
+  const pluginRuntimeConfigById = new Map<string, OpenClawConfig>();
 
   const addPluginRuntimeResolutionContext = (params: {
     error: unknown;
@@ -2661,20 +2662,55 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
         };
         if (prop === "state") {
           const baseState = getRuntimeProperty();
+          const resolveRecord = () =>
+            pluginRuntimeRecordById.get(pluginId) ??
+            registry.plugins.find((entry) => entry.id === pluginId);
+          const isTraditionallyTrusted = (record: PluginRecord | undefined) =>
+            record?.origin === "bundled" || record?.trustedOfficialInstall === true;
           const assertPluginStateAllowed = () => {
-            const record =
-              pluginRuntimeRecordById.get(pluginId) ??
-              registry.plugins.find((entry) => entry.id === pluginId);
-            if (record?.origin !== "bundled" && record?.trustedOfficialInstall !== true) {
+            const record = resolveRecord();
+            if (!isTraditionallyTrusted(record)) {
               throw new Error(
                 "openKeyedStore is only available for trusted plugins in this release.",
+              );
+            }
+          };
+          const assertAsyncKeyedStoreAllowed = (options: OpenKeyedStoreOptions) => {
+            const record = resolveRecord();
+            if (isTraditionallyTrusted(record)) {
+              return;
+            }
+            const config = pluginRuntimeConfigById.get(pluginId);
+            const manifestRuntimeState = (
+              record as
+                | (PluginRecord & {
+                    runtimeState?: { openKeyedStore?: boolean };
+                  })
+                | undefined
+            )?.runtimeState;
+            const entry = config?.plugins?.entries?.[pluginId];
+            const allowed = config?.plugins?.allow?.includes(pluginId) === true;
+            if (
+              record?.origin !== "workspace" ||
+              record.enabled !== true ||
+              !allowed ||
+              manifestRuntimeState?.openKeyedStore !== true ||
+              entry?.runtimeState?.openKeyedStore !== true
+            ) {
+              throw new Error(
+                `workspace plugin ${pluginId} is not authorized to open an asynchronous keyed store`,
+              );
+            }
+            if (options?.namespace !== pluginId) {
+              throw new Error(
+                `workspace plugin keyed-store namespace must exactly equal plugin id ${pluginId}`,
               );
             }
           };
           return {
             ...baseState,
             openKeyedStore: <T>(options: OpenKeyedStoreOptions): PluginStateKeyedStore<T> => {
-              assertPluginStateAllowed();
+              assertAsyncKeyedStoreAllowed(options);
               return createPluginStateKeyedStore<T>(pluginId, options);
             },
             openSyncKeyedStore: <T>(
@@ -2746,6 +2782,7 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     const registrationMode = params.registrationMode ?? "full";
     const registrationCapabilities = resolvePluginRegistrationCapabilities(registrationMode);
     pluginRuntimeRecordById.set(record.id, record);
+    pluginRuntimeConfigById.set(record.id, params.config as OpenClawConfig);
     const sideEffectGuard = createPluginSideEffectGuard(record.id);
     const isLoadedRecordInRegistry = () =>
       registry.plugins.some((plugin) => plugin.id === record.id && plugin.status === "loaded");

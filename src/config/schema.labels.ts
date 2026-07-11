@@ -1062,6 +1062,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "plugins.slots.memory": "Memory Plugin",
   "plugins.slots.contextEngine": "Context Engine Plugin",
   "plugins.entries": "Plugin Entries",
+  "plugins.entries.*.runtimeState.openKeyedStore": "Allow Async Keyed Store",
   "plugins.entries.*.enabled": "Plugin Enabled",
   "plugins.entries.*.hooks": "Plugin Hook Policy",
   "plugins.entries.*.hooks.allowConversationAccess": "Allow Conversation Access Hooks",

@@ -108,6 +108,15 @@ export function createChannelRuntimeContextRegistry(): ChannelRuntimeContextRegi
       if (params.abortSignal?.aborted) {
         return { dispose: () => {} };
       }
+      if (params.onConflict === "reject" && runtimeContexts.has(normalized.mapKey)) {
+        throw new Error(
+          `channel runtime context already registered: channel=${normalized.normalizedKey.channelId} ` +
+            `capability=${normalized.normalizedKey.capability}` +
+            (normalized.normalizedKey.accountId
+              ? ` account=${normalized.normalizedKey.accountId}`
+              : ""),
+        );
+      }
       const token = Symbol(normalized.mapKey);
       let disposed = false;
       const dispose = () => {

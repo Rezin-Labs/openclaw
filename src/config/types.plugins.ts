@@ -25,6 +25,10 @@ export type PluginEntryConfig = {
      */
     allowedModels?: string[];
   };
+  runtimeState?: {
+    /** Explicitly allow this workspace plugin to open its own asynchronous keyed store. */
+    openKeyedStore?: boolean;
+  };
   llm?: {
     /** Explicitly allow this plugin to request a model override for api.runtime.llm.complete. */
     allowModelOverride?: boolean;

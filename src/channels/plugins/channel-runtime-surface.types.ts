@@ -19,11 +19,30 @@ export type ChannelRuntimeContextEvent = {
   context?: unknown;
 };
 
+export type ChannelRuntimeContextConflictPolicy = "replace" | "reject";
+
+export type SlackAppHomeRendererContext = {
+  render: (input: {
+    accountId: string;
+    userId: string;
+    tab?: string;
+  }) => Promise<unknown | null> | unknown | null;
+  onPublished?: (result: {
+    accountId: string;
+    userId: string;
+    tab?: string;
+    viewId: string;
+    privateMetadata?: string;
+  }) => Promise<void> | void;
+};
+
 export type ChannelRuntimeContextRegistry = {
   register: (
     params: ChannelRuntimeContextKey & {
       context: unknown;
       abortSignal?: AbortSignal;
+      /** Reject an occupied key instead of replacing it. Omission preserves replacement behavior. */
+      onConflict?: ChannelRuntimeContextConflictPolicy;
     },
   ) => { dispose: () => void };
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- Runtime context values are caller-typed by key.

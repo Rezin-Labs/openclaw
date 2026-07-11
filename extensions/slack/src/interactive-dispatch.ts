@@ -27,6 +27,10 @@ type SlackBlockInteractivePayload = {
   blockId?: string;
   messageTs?: string;
   threadTs?: string;
+  containerType?: string;
+  viewId?: string;
+  messageBlocksSha256?: string;
+  actionTs?: string;
   value?: string;
   selectedValues?: string[];
   selectedLabels?: string[];

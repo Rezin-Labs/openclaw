@@ -1,4 +1,5 @@
 // Slack plugin module implements interactions.block actions behavior.
+import { createHash } from "node:crypto";
 import type { SlackActionMiddlewareArgs } from "@slack/bolt";
 import type { Block, KnownBlock } from "@slack/web-api";
 import { resolveApprovalOverGateway } from "openclaw/plugin-sdk/approval-gateway-runtime";
@@ -73,6 +74,9 @@ type InteractionSelectionFields = {
   isCleared?: boolean;
   routedChannelType?: string;
   routedChannelId?: string;
+  containerType?: string;
+  messageBlocksSha256?: string;
+  actionTs?: string;
 };
 
 type InteractionSummary = InteractionSelectionFields & {
@@ -97,7 +101,13 @@ type SlackBlockActionBody = {
   trigger_id?: string;
   response_url?: string;
   channel?: { id?: string };
-  container?: { channel_id?: string; message_ts?: string; thread_ts?: string };
+  container?: {
+    type?: string;
+    channel_id?: string;
+    message_ts?: string;
+    thread_ts?: string;
+    view_id?: string;
+  };
   message?: { ts?: string; text?: string; blocks?: unknown[] };
 };
 
@@ -120,6 +130,68 @@ type ParsedSlackBlockAction = {
   threadTs?: string;
   actionSummary: SlackActionSummary;
 };
+
+function assertUnicodeScalarString(value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff))
+        throw new TypeError("lone high surrogate is not valid JCS");
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new TypeError("lone low surrogate is not valid JCS");
+    }
+  }
+}
+
+function canonicalizeJson(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    assertUnicodeScalarString(value);
+    return JSON.stringify(value);
+  }
+  if (typeof value === "boolean") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new TypeError("non-finite number is not JSON-compatible");
+    }
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalizeJson(entry)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const entries = Object.keys(record)
+      .sort()
+      .map((key) => {
+        assertUnicodeScalarString(key);
+        const entry = record[key];
+        if (entry === undefined || typeof entry === "function" || typeof entry === "symbol") {
+          throw new TypeError("value is not JSON-compatible");
+        }
+        return `${JSON.stringify(key)}:${canonicalizeJson(entry)}`;
+      });
+    return `{${entries.join(",")}}`;
+  }
+  throw new TypeError("value is not JSON-compatible");
+}
+
+export function computeSlackMessageBlocksSha256(blocks: unknown): string | undefined {
+  if (!Array.isArray(blocks)) {
+    return undefined;
+  }
+  try {
+    return createHash("sha256").update(canonicalizeJson(blocks), "utf8").digest("hex");
+  } catch {
+    return undefined;
+  }
+}
 
 function readOptionValues(options: unknown): string[] | undefined {
   if (!Array.isArray(options)) {
@@ -432,7 +504,16 @@ function parseSlackBlockAction(params: {
     channelId: typedBody.channel?.id ?? typedBody.container?.channel_id,
     messageTs: typedBody.message?.ts ?? typedBody.container?.message_ts,
     threadTs: typedBody.container?.thread_ts,
-    actionSummary: summarizeAction(typedAction),
+    actionSummary: {
+      ...summarizeAction(typedAction),
+      containerType: typedBody.container?.type,
+      viewId: typedBody.container?.view_id,
+      messageBlocksSha256: computeSlackMessageBlocksSha256(typedBody.message?.blocks),
+      actionTs:
+        typeof (typedAction as { action_ts?: unknown }).action_ts === "string"
+          ? (typedAction as { action_ts: string }).action_ts
+          : undefined,
+    },
   };
 }
 
@@ -642,6 +723,10 @@ async function dispatchSlackPluginInteraction(params: {
         blockId: params.parsed.blockId,
         messageTs: params.parsed.messageTs,
         threadTs: params.parsed.threadTs,
+        containerType: params.parsed.actionSummary.containerType,
+        viewId: params.parsed.actionSummary.viewId,
+        messageBlocksSha256: params.parsed.actionSummary.messageBlocksSha256,
+        actionTs: params.parsed.actionSummary.actionTs,
         value: params.parsed.actionSummary.value,
         selectedValues: params.parsed.actionSummary.selectedValues,
         selectedLabels: params.parsed.actionSummary.selectedLabels,

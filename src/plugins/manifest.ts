@@ -294,11 +294,17 @@ export type PluginManifestConfigContracts = {
   secretInputs?: PluginManifestSecretInputContracts;
 };
 
+export type PluginManifestRuntimeState = {
+  openKeyedStore?: boolean;
+};
+
 export type PluginManifest = {
   id: string;
   configSchema: JsonSchemaObject;
   /** Plugin ids that must also be installed for this plugin to have effect. */
   requiresPlugins?: string[];
+  /** Explicit declarations for privileged runtime state surfaces. */
+  runtimeState?: PluginManifestRuntimeState;
   enabledByDefault?: boolean;
   enabledByDefaultOnPlatforms?: PluginManifestDefaultPlatform[];
   /** Legacy plugin ids that should normalize to this plugin id. */

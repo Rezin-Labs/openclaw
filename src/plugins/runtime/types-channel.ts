@@ -60,6 +60,8 @@ export type PluginRuntimeChannelContextRegistry = {
     params: PluginRuntimeChannelContextKey & {
       context: unknown;
       abortSignal?: AbortSignal;
+      /** Reject an occupied key instead of replacing it. Omission preserves replacement behavior. */
+      onConflict?: "replace" | "reject";
     },
   ) => { dispose: () => void };
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- Runtime context values are caller-typed by key.

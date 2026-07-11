@@ -66,6 +66,35 @@ describe("runtimeContexts", () => {
     unsubscribe();
   });
 
+  it("rejects an occupied exclusive context without replacing its owner", () => {
+    const channel = createRuntimeChannel();
+    const first = channel.runtimeContexts.register({
+      channelId: "slack",
+      accountId: "pablo",
+      capability: "app-home-renderer",
+      context: { owner: "first" },
+      onConflict: "reject",
+    });
+
+    expect(() =>
+      channel.runtimeContexts.register({
+        channelId: "slack",
+        accountId: "pablo",
+        capability: "app-home-renderer",
+        context: { owner: "second" },
+        onConflict: "reject",
+      }),
+    ).toThrow(/already registered/);
+    expect(
+      channel.runtimeContexts.get({
+        channelId: "slack",
+        accountId: "pablo",
+        capability: "app-home-renderer",
+      }),
+    ).toEqual({ owner: "first" });
+    first.dispose();
+  });
+
   it("auto-disposes registrations when the abort signal fires", () => {
     const channel = createRuntimeChannel();
     const controller = new AbortController();
