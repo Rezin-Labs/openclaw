@@ -409,7 +409,7 @@ export class NewSessionPage extends OpenClawLightDomElement {
     this.connectMachine.start();
   }
 
-  private renderDraftBlock() {
+  private renderDraftBlock(configuredStarters: unknown) {
     return renderNewSessionDraftView({
       context: this.context,
       gateway: this.gateway,
@@ -419,6 +419,7 @@ export class NewSessionPage extends OpenClawLightDomElement {
       titlePreparation: this.titlePreparation,
       draftOwnerKey: this.routeOwnerKey(),
       isCatalogTarget: catalog.isTarget(this.data),
+      configuredStarters,
       renderTargetBar: () => this.renderTargetBar(),
       requestUpdate: () => this.requestUpdate(),
       onMessage: (message, mentions) => this.setMessageFromUser(message, mentions),
@@ -431,11 +432,12 @@ export class NewSessionPage extends OpenClawLightDomElement {
     const identity = this.context?.agentIdentity.get(this.place.agentId);
     const gateway = this.context?.gateway.snapshot;
     return renderWelcomeState({
+      agents: this.place.agents(),
       assistantName: agent ? normalizeAgentTargetLabel(agent, identity) : "",
       assistantAvatar: agent?.identity?.avatar ?? agent?.identity?.emoji ?? null,
       assistantAvatarUrl: agent?.identity?.avatarUrl ?? null,
       hint: t(catalog.isTarget(this.data) ? "newSession.nativeTerminalHint" : "newSession.hint"),
-      composer: this.renderDraftBlock(),
+      renderComposer: (configuredStarters) => this.renderDraftBlock(configuredStarters),
       hideSecondaryContent: this.submission.visibility === "incognito",
       fadeSecondaryContent: this.submission.message.trim().length > 0,
       modelSetupRequired: this.submission.requiresModelSetup(),

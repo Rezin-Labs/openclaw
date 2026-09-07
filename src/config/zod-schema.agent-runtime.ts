@@ -919,11 +919,19 @@ export const AgentModelPolicySchema = z
   })
   .strict();
 
+const AgentStarterSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80),
+    prompt: z.string().trim().min(1).max(2_000).optional(),
+  })
+  .strict();
+
 export const AgentEntrySchema = z
   .object({
     id: z.string(),
     name: z.string().optional(),
     description: z.string().optional(),
+    starters: z.array(AgentStarterSchema).min(1).max(5).optional(),
     workspace: z.string().optional(),
     cwd: z.string().optional(),
     agentDir: z.string().optional(),

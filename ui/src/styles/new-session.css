@@ -144,6 +144,11 @@ html.openclaw-native-macos .new-session-page__incognito-rail {
   text-align: left;
 }
 
+.new-session-page__draft > .agent-chat__suggestions {
+  align-self: center;
+  margin-top: 0;
+}
+
 .new-session-page__incognito-notice {
   display: flex;
   align-items: center;

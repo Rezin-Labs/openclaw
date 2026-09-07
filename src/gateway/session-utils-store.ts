@@ -355,6 +355,7 @@ export function listAgentsForGateway(
   const basic = listGatewayAgentsBasic(cfg);
   const execApprovals = loadExecApprovals();
   const identityById = new Map<string, GatewayAgentRow["identity"]>();
+  const startersById = new Map<string, GatewayAgentRow["starters"]>();
   for (const entry of listAgentEntries(cfg)) {
     if (!entry?.id) {
       continue;
@@ -380,6 +381,7 @@ export function listAgentsForGateway(
         }
       : undefined;
     identityById.set(agentId, identity);
+    startersById.set(agentId, entry.starters);
   }
   const roster = options?.includeSystem
     ? basic.agents
@@ -438,6 +440,7 @@ export function listAgentsForGateway(
         id,
         ...(options?.includeSystem ? { kind: entry.kind } : {}),
         name: entry.name,
+        starters: startersById.get(id),
         identity: identityById.get(id),
         workspace,
         workspaceGit,

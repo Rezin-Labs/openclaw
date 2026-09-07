@@ -21,6 +21,7 @@ export function renderNewSessionDraftView(options: {
   titlePreparation: NewSessionTitleController;
   draftOwnerKey: string;
   isCatalogTarget: boolean;
+  configuredStarters?: unknown;
   renderTargetBar: () => TemplateResult;
   requestUpdate: () => void;
   onMessage: (message: string, mentions?: readonly HumanMention[]) => void;
@@ -35,6 +36,7 @@ export function renderNewSessionDraftView(options: {
     titlePreparation,
     draftOwnerKey,
     isCatalogTarget,
+    configuredStarters,
     renderTargetBar,
     requestUpdate,
     onMessage,
@@ -60,7 +62,8 @@ export function renderNewSessionDraftView(options: {
         titlePreparation.setComposing(false);
       }}
     >
-      ${renderTargetBar()} ${renderNewSessionDraftErrors(place, submission, isCatalogTarget)}
+      ${renderTargetBar()} ${configuredStarters ?? nothing}
+      ${renderNewSessionDraftErrors(place, submission, isCatalogTarget)}
       ${renderNewSessionDraftComposer({
         agent: place.selectedAgent(),
         agentId: place.agentId,

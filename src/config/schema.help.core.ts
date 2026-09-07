@@ -315,6 +315,8 @@ export const CORE_FIELD_HELP: Record<string, string> = {
     "Default max characters retained from AGENTS.md during post-compaction context refresh injection. Lower this to make compaction recovery cheaper, or raise it for agents that depend on longer startup guidance.",
   "agents.entries":
     "Explicit list of configured agents with IDs and optional overrides for model, tools, identity, and workspace. Keep IDs stable over time so bindings, approvals, and session routing remain deterministic.",
+  "agents.entries.*.starters":
+    "Optional empty-chat starter actions for this agent in the Control UI. Configure up to five {label, prompt?} entries; prompt defaults to label. Invalid or absent metadata uses the four built-in starters.",
   "agents.entries.*.skillsLimits":
     "Optional per-agent overrides for skills subsystem budgets. Use this when an agent needs a different skills prompt budget without introducing a second generic context-limits path.",
   "agents.entries.*.skillsLimits.maxSkillsPromptChars":
