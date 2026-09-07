@@ -81,6 +81,13 @@ export type AgentAcpBinding = {
 
 export type AgentBinding = AgentRouteBinding | AgentAcpBinding;
 
+export type AgentStarterConfig = {
+  /** Visible action label on an empty Control UI chat. */
+  label: string;
+  /** Message sent through the normal chat path; defaults to label. */
+  prompt?: string;
+};
+
 export type AgentConfig = {
   id: string;
   /** @deprecated Raw legacy list compatibility only; canonical agents.entries rejects this key. */
@@ -88,6 +95,8 @@ export type AgentConfig = {
   name?: string;
   /** Optional human-authored agent description. */
   description?: string;
+  /** Optional empty-chat actions for this agent (maximum five). */
+  starters?: AgentStarterConfig[];
   workspace?: string;
   /** Working directory for agent reply runs; overrides agents.defaults.cwd. */
   cwd?: string;

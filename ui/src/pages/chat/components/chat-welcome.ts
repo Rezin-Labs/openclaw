@@ -1,6 +1,10 @@
 // Control UI chat module implements chat welcome behavior.
 import { html, nothing } from "lit";
-import type { GatewaySessionRow, SessionsListResult } from "../../../api/types.ts";
+import type {
+  AgentsListResult,
+  GatewaySessionRow,
+  SessionsListResult,
+} from "../../../api/types.ts";
 import { identityAvatarImage } from "../../../components/identity-avatar-view.ts";
 import "../../../components/openclaw-mascot.ts";
 import { t } from "../../../i18n/index.ts";
@@ -25,8 +29,8 @@ type ChatWelcomeProps = {
   assistantAvatarUrl?: string | null;
   /** Hero hint override; defaults to the chat slash-command hint. */
   hint?: unknown;
-  /** Rendered between the hero and the recents (the new-session draft composer). */
-  composer?: unknown;
+  /** Renders the new-session draft between the hero and recents. */
+  renderComposer?: (configuredSuggestions: unknown) => unknown;
   /** Hide recents and suggestions when the surrounding flow must stay ephemeral. */
   hideSecondaryContent?: boolean;
   /** Visually retire secondary content while the new-session draft is active. */
@@ -34,6 +38,8 @@ type ChatWelcomeProps = {
   sessions?: SessionsListResult | null;
   sessionKey?: string;
   sessionHost?: UiSessionDefaultsHost | null;
+  agents?: AgentsListResult["agents"];
+  currentAgentId?: string;
   modelSetupRequired?: boolean;
   onModelSetup?: () => void;
   onDraftChange: (next: string) => void;
@@ -51,6 +57,54 @@ const WELCOME_SUGGESTION_KEYS = [
 ];
 
 const WELCOME_RECENT_SESSION_LIMIT = 5;
+
+type WelcomeSuggestion = { label: string; prompt: string };
+
+function resolveDefaultWelcomeSuggestions(): WelcomeSuggestion[] {
+  return WELCOME_SUGGESTION_KEYS.map((key) => {
+    const label = t(key);
+    return { label, prompt: label };
+  });
+}
+
+function resolveConfiguredWelcomeSuggestions(
+  props: Pick<ChatWelcomeProps, "agents" | "currentAgentId" | "sessionHost" | "sessionKey">,
+): WelcomeSuggestion[] | null {
+  const selectedAgentId =
+    props.currentAgentId ??
+    parseAgentSessionKey(props.sessionKey)?.agentId ??
+    resolveUiSelectedGlobalAgentId(props.sessionHost ?? {});
+  const starters = props.agents?.find((agent) => agent.id === selectedAgentId)?.starters;
+  if (
+    !Array.isArray(starters) ||
+    starters.length === 0 ||
+    starters.length > 5 ||
+    !starters.every(
+      (starter) =>
+        typeof starter === "object" &&
+        starter !== null &&
+        typeof starter.label === "string" &&
+        starter.label.trim().length > 0 &&
+        starter.label.length <= 80 &&
+        (starter.prompt === undefined ||
+          (typeof starter.prompt === "string" &&
+            starter.prompt.trim().length > 0 &&
+            starter.prompt.length <= 2_000)),
+    )
+  ) {
+    return null;
+  }
+  return starters.map((starter) => ({
+    label: starter.label,
+    prompt: starter.prompt ?? starter.label,
+  }));
+}
+
+function resolveWelcomeSuggestions(
+  props: Pick<ChatWelcomeProps, "agents" | "currentAgentId" | "sessionHost" | "sessionKey">,
+): WelcomeSuggestion[] {
+  return resolveConfiguredWelcomeSuggestions(props) ?? resolveDefaultWelcomeSuggestions();
+}
 
 function resolveAssistantAvatarUrl(
   props: Pick<ChatWelcomeProps, "assistantAvatar" | "assistantAvatarUrl">,
@@ -131,21 +185,26 @@ function renderWelcomeRecentSessions(
   `;
 }
 
-function renderWelcomeSuggestions(props: Pick<ChatWelcomeProps, "onDraftChange" | "onSend">) {
+function renderWelcomeSuggestions(
+  props: Pick<
+    ChatWelcomeProps,
+    "agents" | "currentAgentId" | "onDraftChange" | "onSend" | "sessionHost" | "sessionKey"
+  >,
+  suggestions = resolveWelcomeSuggestions(props),
+) {
   return html`
     <div class="agent-chat__suggestions">
-      ${WELCOME_SUGGESTION_KEYS.map((key) => {
-        const text = t(key);
+      ${suggestions.map((starter) => {
         return html`
           <button
             type="button"
             class="agent-chat__suggestion"
             @click=${() => {
-              props.onDraftChange(text);
+              props.onDraftChange(starter.prompt);
               props.onSend();
             }}
           >
-            ${text}
+            ${starter.label}
           </button>
         `;
       })}
@@ -199,6 +258,11 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
     `;
   }
   const recentSessions = selectWelcomeRecentSessions(props);
+  const configuredSuggestions = resolveConfiguredWelcomeSuggestions(props);
+  const configuredSuggestionButtons =
+    configuredSuggestions && !props.hideSecondaryContent
+      ? renderWelcomeSuggestions(props, configuredSuggestions)
+      : nothing;
   let fileDragDepth = 0;
   const mascotFor = (event: DragEvent): WelcomeMascot | null => {
     const target = event.currentTarget;
@@ -250,7 +314,7 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
               "chat.welcome.hintAfterShortcut",
             )}`,
       })}
-      ${props.composer ?? nothing}
+      ${props.renderComposer?.(configuredSuggestionButtons) ?? nothing}
       ${
         props.hideSecondaryContent
           ? nothing
@@ -265,7 +329,9 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
                 ${
                   recentSessions.length > 0
                     ? renderWelcomeRecentSessions(recentSessions, props.onOpenSession)
-                    : renderWelcomeSuggestions(props)
+                    : configuredSuggestions && props.renderComposer
+                      ? nothing
+                      : renderWelcomeSuggestions(props)
                 }
               </div>
             </div>`

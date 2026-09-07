@@ -3964,6 +3964,19 @@ describe("gateway session utils", () => {
     });
   });
 
+  test("listAgentsForGateway projects configured chat starters", () => {
+    const starters = [
+      { label: "Ad Images", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ad-images" },
+      { label: "UGC" },
+    ];
+    const cfg = {
+      session: { mainKey: "main" },
+      agents: { list: [{ id: "pablo", default: true, starters }] },
+    } as OpenClawConfig;
+
+    expect(listAgentsForGateway(cfg).agents[0]?.starters).toEqual(starters);
+  });
+
   test("listAgentsForGateway prefers explicit name over identity.name", () => {
     const cfg = {
       session: { mainKey: "main" },

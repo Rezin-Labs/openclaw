@@ -11,7 +11,7 @@ import type {
   ControlUiSessionBranch,
   ControlUiSessionPullRequest,
 } from "../../../../src/gateway/control-ui-contract.js";
-import type { GatewaySessionRow } from "../../api/types.ts";
+import type { AgentsListResult, GatewaySessionRow } from "../../api/types.ts";
 import type { ExecApprovalDecision, ExecApprovalRequest } from "../../app/exec-approval.ts";
 import { renderExecApprovalCard } from "../../components/exec-approval-card.ts";
 import { icons } from "../../components/icons.ts";
@@ -99,14 +99,7 @@ export type ChatProps = Omit<
     onToggleFocusMode?: () => void;
     onDismissError?: () => void;
     onClearHistory?: () => void;
-    agentsList: {
-      agents: Array<{
-        id: string;
-        name?: string;
-        identity?: { name?: string; avatarUrl?: string };
-      }>;
-      defaultId?: string;
-    } | null;
+    agentsList: Pick<AgentsListResult, "agents" | "defaultId"> | null;
     onAgentChange: (agentId: string) => void;
     onNavigateToAgent?: () => void;
     onSessionSelect?: (sessionKey: string) => void;

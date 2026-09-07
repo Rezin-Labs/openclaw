@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDeferred } from "../../../../test/helpers/promise.js";
 import type { GatewayBrowserClient } from "../../api/gateway.ts";
 import type {
+  AgentsListResult,
   GatewaySessionRow,
   ModelAuthStatusResult,
   ModelCatalogEntry,
@@ -6753,9 +6754,15 @@ describe("chat welcome", () => {
     sessions?: SessionsListResult | null;
     sessionKey?: string;
     sessionHost?: { assistantAgentId?: string | null } | null;
+    agents?: AgentsListResult["agents"];
+    currentAgentId?: string;
+    renderComposer?: (configuredSuggestions: unknown) => unknown;
+    hideSecondaryContent?: boolean;
     onOpenSession?: (sessionKey: string) => void;
     modelSetupRequired?: boolean;
     onModelSetup?: () => void;
+    onDraftChange?: (next: string) => void;
+    onSend?: () => void;
   }) {
     const container = document.createElement("div");
     render(
@@ -6766,11 +6773,15 @@ describe("chat welcome", () => {
         sessions: params.sessions,
         sessionKey: params.sessionKey,
         sessionHost: params.sessionHost,
+        agents: params.agents,
+        currentAgentId: params.currentAgentId,
+        renderComposer: params.renderComposer,
+        hideSecondaryContent: params.hideSecondaryContent,
         onOpenSession: params.onOpenSession,
         modelSetupRequired: params.modelSetupRequired,
         onModelSetup: params.onModelSetup,
-        onDraftChange: () => undefined,
-        onSend: () => undefined,
+        onDraftChange: params.onDraftChange ?? (() => undefined),
+        onSend: params.onSend ?? (() => undefined),
       }),
       container,
     );
@@ -6858,6 +6869,97 @@ describe("chat welcome", () => {
     expect(container.querySelector(".agent-chat__suggestion")?.textContent?.trim()).toBe(
       t("chat.welcome.suggestions.whatCanYouDo"),
     );
+  });
+
+  it("keeps selected-agent starters ordered and scoped across welcome placements", () => {
+    const events: string[] = [];
+    const starters = [
+      { label: "Ad Images", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ad-images" },
+      { label: "UGC", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ugc" },
+      { label: "Email Creative" },
+      { label: "Website Banners" },
+      { label: "Re-Aspect" },
+    ];
+    const container = renderWelcome({
+      assistantAvatar: null,
+      agents: [{ id: "chris" }, { id: "pablo", starters }],
+      currentAgentId: "pablo",
+      onDraftChange: (next) => events.push(`draft:${next}`),
+      onSend: () => events.push("send"),
+    });
+
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>(".agent-chat__suggestion")];
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(
+      starters.map((starter) => starter.label),
+    );
+    for (const button of buttons) {
+      button.click();
+    }
+    expect(events).toEqual(
+      starters.flatMap((starter) => [`draft:${starter.prompt ?? starter.label}`, "send"]),
+    );
+
+    const renderComposer = (suggestions: unknown) => html`
+      <div data-testid="new-session-draft">${suggestions}</div>
+    `;
+    const draftContainer = renderWelcome({
+      assistantAvatar: null,
+      agents: [{ id: "chris" }, { id: "pablo", starters }],
+      sessionKey: "agent:pablo:main",
+      renderComposer,
+    });
+    expect(
+      [...draftContainer.querySelectorAll("[data-testid='new-session-draft'] button")].map(
+        (button) => button.textContent?.trim(),
+      ),
+    ).toEqual(starters.map((starter) => starter.label));
+    expect(draftContainer.querySelector(".agent-chat__welcome-secondary button")).toBeNull();
+
+    const incognitoContainer = renderWelcome({
+      assistantAvatar: null,
+      agents: [{ id: "pablo", starters }],
+      sessionKey: "agent:pablo:main",
+      renderComposer,
+      hideSecondaryContent: true,
+    });
+    expect(incognitoContainer.querySelector(".agent-chat__suggestion")).toBeNull();
+
+    const otherAgentContainer = renderWelcome({
+      assistantAvatar: null,
+      agents: [{ id: "chris" }, { id: "pablo", starters }],
+      sessionKey: "agent:chris:main",
+      renderComposer,
+    });
+    expect(
+      otherAgentContainer.querySelector("[data-testid='new-session-draft'] button"),
+    ).toBeNull();
+    expect(
+      otherAgentContainer.querySelectorAll(".agent-chat__welcome-secondary button"),
+    ).toHaveLength(4);
+  });
+
+  it.each([
+    { label: "absent metadata", starters: undefined },
+    { label: "empty metadata", starters: [] },
+    { label: "invalid metadata", starters: [{ label: "" }] },
+    { label: "oversized metadata", starters: [{ label: "x".repeat(81) }] },
+  ])("keeps the four generic starters for $label", ({ starters }) => {
+    const container = renderWelcome({
+      assistantAvatar: null,
+      agents: [{ id: "chris", starters } as AgentsListResult["agents"][number]],
+      currentAgentId: "chris",
+    });
+
+    expect(
+      [...container.querySelectorAll(".agent-chat__suggestion")].map((button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual([
+      t("chat.welcome.suggestions.whatCanYouDo"),
+      t("chat.welcome.suggestions.summarizeRecentSessions"),
+      t("chat.welcome.suggestions.configureChannel"),
+      t("chat.welcome.suggestions.checkSystemHealth"),
+    ]);
   });
 
   it("lists recent user chats instead of suggestions when any exist", () => {

@@ -186,6 +186,38 @@ describe("AgentsListResultSchema", () => {
     expectAccepted(AgentsListResultSchema, result);
   });
 
+  it("accepts at most five per-agent chat starters", () => {
+    const result = {
+      defaultId: "pablo",
+      mainKey: "main",
+      scope: "per-sender",
+      agents: [
+        {
+          id: "pablo",
+          starters: [
+            { label: "Ad Images", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ad-images" },
+            { label: "UGC" },
+          ],
+        },
+      ],
+    };
+
+    expectAccepted(AgentsListResultSchema, result);
+    expectRejected(AgentsListResultSchema, {
+      ...result,
+      agents: [
+        {
+          id: "pablo",
+          starters: Array.from({ length: 6 }, (_, index) => ({ label: `Workflow ${index}` })),
+        },
+      ],
+    });
+    expectRejected(AgentsListResultSchema, {
+      ...result,
+      agents: [{ id: "pablo", starters: [{ label: "" }] }],
+    });
+  });
+
   it("keeps the legacy default required while accepting additive ownership metadata", () => {
     const legacy = {
       defaultId: "ops",

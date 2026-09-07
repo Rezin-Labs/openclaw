@@ -103,6 +103,11 @@ const AgentCreatedViaSchema = Type.Union([
   Type.Literal("claw"),
 ]);
 
+const AgentStarterSchema = closedObject({
+  label: Type.String({ minLength: 1, maxLength: 80 }),
+  prompt: Type.Optional(Type.String({ minLength: 1, maxLength: 2_000 })),
+});
+
 /** Condensed agent record returned by list APIs. */
 export const AgentSummarySchema = closedObject({
   id: NonEmptyString,
@@ -111,6 +116,7 @@ export const AgentSummarySchema = closedObject({
   creatorAgentId: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
   createdAt: Type.Optional(Type.Integer({ minimum: 0 })),
   name: Type.Optional(NonEmptyString),
+  starters: Type.Optional(Type.Array(AgentStarterSchema, { minItems: 1, maxItems: 5 })),
   identity: Type.Optional(
     closedObject({
       name: Type.Optional(NonEmptyString),

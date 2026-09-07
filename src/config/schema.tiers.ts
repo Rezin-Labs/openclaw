@@ -39,6 +39,7 @@ agents.entries.*.memory.search.enabled agents.entries.*.memory.search.provider
 agents.entries.*.memory.search.rememberAcrossConversations agents.entries.*.memory.search.model
 agents.entries.*.memory.search.remote.apiKey agents.entries.*.heartbeat.model
 agents.entries.*.model agents.entries.*.model.primary agents.entries.*.name
+agents.entries.*.starters
 agents.entries.*.runtime.acp.agent agents.entries.*.runtime.type
 agents.entries.*.sandbox.ssh.workspaceRoot agents.entries.*.sandbox.workspaceRoot
 agents.entries.*.subagents.model agents.entries.*.subagents.model.primary agents.entries.*.workspace

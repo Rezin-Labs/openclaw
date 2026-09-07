@@ -24,6 +24,14 @@ const agentsList = {
   scope: "agent",
 };
 
+const pabloStarters = [
+  { label: "Ad Images", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ad-images" },
+  { label: "UGC", prompt: "PABLO_HOME_LAUNCH_V1 workflow=ugc" },
+  { label: "Email Creative", prompt: "PABLO_HOME_LAUNCH_V1 workflow=email-creative" },
+  { label: "Website Banners", prompt: "PABLO_HOME_LAUNCH_V1 workflow=website-banners" },
+  { label: "Re-Aspect", prompt: "PABLO_HOME_LAUNCH_V1 workflow=re-aspect" },
+];
+
 const agentIdentities = {
   cases: [
     {
@@ -111,6 +119,98 @@ async function captureElement(locator: Locator, name: string) {
 }
 
 suite.define(() => {
+  it("keeps configured New Session starters scoped, ordered, and above the composer", async () => {
+    const context = await suite.browser.newContext(CONTEXT);
+    const page = await context.newPage();
+    const gateway = await installMockGateway(page, {
+      defaultAgentId: "main",
+      methodResponses: {
+        "agent.identity.get": {
+          cases: [
+            ...agentIdentities.cases,
+            {
+              match: { agentId: "pablo" },
+              response: {
+                agentId: "pablo",
+                avatar: "P",
+                avatarStatus: "none",
+                name: "Pablo",
+                nameSource: "agent",
+              },
+            },
+          ],
+        },
+        "agents.list": {
+          ...agentsList,
+          agents: [
+            ...agentsList.agents,
+            {
+              id: "pablo",
+              starters: pabloStarters,
+              workspace: "/home/operator/pablo",
+              workspaceGit: true,
+            },
+          ],
+        },
+        "sessions.list": {
+          count: 0,
+          defaults: { contextTokens: null, model: null, modelProvider: null },
+          path: "",
+          sessions: [],
+          ts: Date.now(),
+        },
+      },
+    });
+
+    try {
+      await page.goto(`${suite.server.baseUrl}new?agent=pablo`);
+      await gateway.waitForRequest("agent.identity.get");
+
+      const starters = page.locator(
+        ".new-session-page__draft > .agent-chat__suggestions .agent-chat__suggestion",
+      );
+      await expect.poll(() => starters.count()).toBe(pabloStarters.length);
+      expect((await starters.allTextContents()).map((label) => label.trim())).toEqual(
+        pabloStarters.map((starter) => starter.label),
+      );
+      expect(
+        await page.locator(".agent-chat__welcome-secondary .agent-chat__suggestion").count(),
+      ).toBe(0);
+
+      const [routesBox, startersBox, composerBox] = await Promise.all([
+        page.locator(".new-session-page__triggers").boundingBox(),
+        page.locator(".new-session-page__draft > .agent-chat__suggestions").boundingBox(),
+        page.locator(".new-session-page__composer").boundingBox(),
+      ]);
+      expect(routesBox).not.toBeNull();
+      expect(startersBox).not.toBeNull();
+      expect(composerBox).not.toBeNull();
+      expect((routesBox?.y ?? 0) + (routesBox?.height ?? 0)).toBeLessThanOrEqual(
+        (startersBox?.y ?? 0) + 1,
+      );
+      expect((startersBox?.y ?? 0) + (startersBox?.height ?? 0)).toBeLessThanOrEqual(
+        (composerBox?.y ?? 0) + 1,
+      );
+      await capture(page, "configured-starters.png");
+
+      await page.goto(`${suite.server.baseUrl}new?agent=main`);
+      await pollLocatorText(page.locator(".agent-chat__welcome h2")).toBe("Pacino");
+      expect(
+        await page.locator(".new-session-page__draft > .agent-chat__suggestions").count(),
+      ).toBe(0);
+      expect(
+        await page.locator(".agent-chat__welcome-secondary .agent-chat__suggestion").count(),
+      ).toBe(4);
+      for (const starter of pabloStarters) {
+        expect(await page.getByRole("button", { name: starter.label, exact: true }).count()).toBe(
+          0,
+        );
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
   it("drops a pending skill completion after an agent switch", async () => {
     const context = await suite.browser.newContext(CONTEXT);
     const page = await context.newPage();
